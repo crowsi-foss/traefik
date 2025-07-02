@@ -107,5 +107,6 @@ tcp:
 
 | Middleware                                | Purpose                                           | Area                        |
 |-------------------------------------------|---------------------------------------------------|-----------------------------|
+| [AccessLog](accesslog.md)                 | Generates detailed logs for TCP connections.      | Observability               |
 | [InFlightConn](inflightconn.md)           | Limits the number of simultaneous connections.    | Security, Request lifecycle |
 | [IPAllowList](ipallowlist.md)             | Limit the allowed client IPs.                     | Security, Request lifecycle |

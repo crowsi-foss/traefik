@@ -8,6 +8,8 @@ type TCPMiddleware struct {
 	// Deprecated: please use IPAllowList instead.
 	IPWhiteList *TCPIPWhiteList `json:"ipWhiteList,omitempty" toml:"ipWhiteList,omitempty" yaml:"ipWhiteList,omitempty" export:"true"`
 	IPAllowList *TCPIPAllowList `json:"ipAllowList,omitempty" toml:"ipAllowList,omitempty" yaml:"ipAllowList,omitempty" export:"true"`
+
+	AccessLog *TCPAccessLog `json:"accessLog,omitempty" toml:"accessLog,omitempty" yaml:"accessLog,omitempty" export:"true"`
 }
 
 // +k8s:deepcopy-gen=true

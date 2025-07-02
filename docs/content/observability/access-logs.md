@@ -8,9 +8,13 @@ description: "Access logs are a key part of observability in Traefik Proxy. Read
 Who Calls Whom?
 {.subtitle}
 
-By default, logs are written to stdout, in text format.
+Traefik can generate access logs for both HTTP and TCP services. By default, logs are written to stdout.
 
-## Configuration
+## HTTP Access Logs
+
+HTTP Access Logs provide detailed information about HTTP requests processed by Traefik.
+
+### Configuration
 
 To enable the access logs:
 
@@ -275,6 +279,58 @@ This allows the logs to be rotated and processed by an external program, such as
 
 !!! warning
     This does not work on Windows due to the lack of USR signals.
+
+## TCP Access Logs
+
+TCP Access Logs provide insights into TCP connections handled by Traefik, including details for mTLS if enabled.
+They are configured as a [TCP middleware](../middlewares/tcp/accesslog.md).
+
+To enable TCP access logs, you first define a TCP middleware with the `accessLog` configuration and then apply this middleware to your TCP routers.
+
+Example:
+
+```yaml tab="File (YAML)"
+# Dynamic Configuration
+tcp:
+  middlewares:
+    log-my-tcp:
+      accessLog:
+        filePath: "/var/log/traefik_tcp_access.log"
+        format: "json"
+  routers:
+    my-tcp-router:
+      entryPoints:
+        - "tcpin"
+      rule: "HostSNI(`*`)"
+      service: "my-tcp-service"
+      middlewares:
+        - "log-my-tcp"
+  services:
+    my-tcp-service:
+      loadBalancer:
+        servers:
+          - address: "10.0.0.1:1234"
+```
+
+```toml tab="File (TOML)"
+# Dynamic Configuration
+[tcp.middlewares.log-my-tcp.accessLog]
+  filePath = "/var/log/traefik_tcp_access.log"
+  format = "json"
+
+[tcp.routers.my-tcp-router]
+  entryPoints = ["tcpin"]
+  rule = "HostSNI(`*`)"
+  service = "my-tcp-service"
+  middlewares = ["log-my-tcp"]
+
+[tcp.services.my-tcp-service.loadBalancer.servers]
+  address = "10.0.0.1:1234"
+```
+
+For detailed configuration options, available fields (including extensive client certificate information for mTLS), and formats for TCP access logs, please refer to the [TCP Access Log Middleware documentation](../middlewares/tcp/accesslog.md).
+
+TCP access logs also support log rotation via USR1 signal and OpenTelemetry integration, similar to HTTP access logs.
 
 ## Time Zones
 

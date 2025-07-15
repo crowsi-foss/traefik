@@ -12,5 +12,5 @@ spec:
   - match: HostSNI(`foo.com`)
     services:
     - name: native-svc-tcp
-      port: 9000
+      port: 8000
       nativeLB: true

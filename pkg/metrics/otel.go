@@ -209,11 +209,7 @@ func newOpenTelemetryMeterProvider(ctx context.Context, config *types.OTLP) (*sd
 	res, err := resource.New(ctx,
 		resource.WithAttributes(semconv.ServiceNameKey.String(config.ServiceName)),
 		resource.WithAttributes(semconv.ServiceVersionKey.String(version.Version)),
-		resource.WithContainer(),
 		resource.WithFromEnv(),
-		resource.WithHost(),
-		resource.WithOS(),
-		resource.WithProcess(),
 		resource.WithTelemetrySDK(),
 	)
 	if err != nil {

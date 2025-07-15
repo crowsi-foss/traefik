@@ -117,11 +117,6 @@ type TCPMiddlewareInfo struct {
 	Err    []string `json:"error,omitempty"`
 	Status string   `json:"status,omitempty"`
 	UsedBy []string `json:"usedBy,omitempty"` // list of TCP routers and services using that middleware.
-
-	// TCPAccessLog is a pointer to the TCPAccessLog configuration if this middleware is an access log.
-	// This is primarily for type identification at runtime if needed, as the
-	// actual configuration is embedded within dynamic.TCPMiddleware.
-	TCPAccessLog *dynamic.TCPAccessLog `json:"-"`
 }
 
 // AddError adds err to s.Err, if it does not already exist.

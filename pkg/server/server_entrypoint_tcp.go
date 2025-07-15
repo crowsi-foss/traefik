@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"expvar"
 	"fmt"
@@ -383,6 +384,18 @@ func (c *writeCloserWrapper) CloseWrite() error {
 	return c.writeCloser.CloseWrite()
 }
 
+// ConnectionState returns the TLS connection state, if any.
+func (c *writeCloserWrapper) ConnectionState() *tls.ConnectionState {
+	if stater, ok := c.Conn.(tcp.ConnectionStater); ok {
+		return stater.ConnectionState()
+	}
+	if tlsConn, ok := c.Conn.(*tls.Conn); ok {
+		state := tlsConn.ConnectionState()
+		return &state
+	}
+	return nil
+}
+
 // writeCloser returns the given connection, augmented with the WriteCloser
 // implementation, if any was found within the underlying conn.
 func writeCloser(conn net.Conn) (tcp.WriteCloser, error) {
@@ -395,6 +408,9 @@ func writeCloser(conn net.Conn) (tcp.WriteCloser, error) {
 		return &writeCloserWrapper{writeCloser: underlying, Conn: typedConn}, nil
 	case *net.TCPConn:
 		return typedConn, nil
+	case *tls.Conn:
+		// A *tls.Conn satisfies net.Conn, but not tcp.WriteCloser, so we wrap it.
+		return &writeCloserWrapper{writeCloser: typedConn, Conn: typedConn}, nil
 	default:
 		return nil, fmt.Errorf("unknown connection type %T", typedConn)
 	}
@@ -711,6 +727,14 @@ func newTrackedConnection(conn tcp.WriteCloser, tracker *connectionTracker) *tra
 type trackedConnection struct {
 	tracker *connectionTracker
 	tcp.WriteCloser
+}
+
+// ConnectionState delegates the call to the underlying tcp.WriteCloser if it implements tcp.ConnectionStater.
+func (t *trackedConnection) ConnectionState() *tls.ConnectionState {
+	if stater, ok := t.WriteCloser.(tcp.ConnectionStater); ok {
+		return stater.ConnectionState()
+	}
+	return nil
 }
 
 func (t *trackedConnection) Close() error {

@@ -1,6 +1,7 @@
 package tcp
 
 import (
+	"crypto/tls"
 	"net"
 )
 
@@ -25,4 +26,9 @@ type WriteCloser interface {
 	// has terminated sending on that connection.
 	// It corresponds to sending a FIN packet.
 	CloseWrite() error
+}
+
+// ConnectionStater is an interface for getting TLS connection state.
+type ConnectionStater interface {
+	ConnectionState() *tls.ConnectionState
 }

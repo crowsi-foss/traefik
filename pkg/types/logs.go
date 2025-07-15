@@ -49,71 +49,6 @@ type TraefikLog struct {
 	OTLP *OTelLog `description:"Settings for OpenTelemetry." json:"otlp,omitempty" toml:"otlp,omitempty" yaml:"otlp,omitempty" label:"allowEmpty" file:"allowEmpty" export:"true"`
 }
 
-// TCPAccessLog holds the configuration settings for the TCP access logger.
-type TCPAccessLog struct {
-	FilePath      string                 `description:"TCP access log file path. Stdout is used when omitted or empty." json:"filePath,omitempty" toml:"filePath,omitempty" yaml:"filePath,omitempty"`
-	Format        string                 `description:"TCP access log format: json | common" json:"format,omitempty" toml:"format,omitempty" yaml:"format,omitempty" export:"true"`
-	Filters       *TCPAccessLogFilters   `description:"TCP access log filters, used to keep only specific access logs." json:"filters,omitempty" toml:"filters,omitempty" yaml:"filters,omitempty" export:"true"`
-	Fields        *TCPAccessLogFields    `description:"TCP AccessLogFields." json:"fields,omitempty" toml:"fields,omitempty" yaml:"fields,omitempty" export:"true"`
-	BufferingSize int64                  `description:"Number of TCP access log lines to process in a buffered way." json:"bufferingSize,omitempty" toml:"bufferingSize,omitempty" yaml:"bufferingSize,omitempty" export:"true"`
-	// TODO: Consider if AddInternals is applicable for TCP as it is for HTTP.
-	// AddInternals  bool              `description:"Enables access log for internal TCP services." json:"addInternals,omitempty" toml:"addInternals,omitempty" yaml:"addInternals,omitempty" export:"true"`
-
-	OTLP *OTelLog `description:"Settings for OpenTelemetry." json:"otlp,omitempty" toml:"otlp,omitempty" yaml:"otlp,omitempty" label:"allowEmpty" file:"allowEmpty" export:"true"`
-}
-
-// SetDefaults sets the default values for TCPAccessLog.
-func (l *TCPAccessLog) SetDefaults() {
-	l.Format = CommonFormat // Defaulting to common, JSON is also a good option.
-	l.FilePath = ""
-	l.Filters = &TCPAccessLogFilters{}
-	l.Fields = &TCPAccessLogFields{}
-	l.Fields.SetDefaults()
-}
-
-// TCPAccessLogFilters holds filters configuration for TCP access logs.
-type TCPAccessLogFilters struct {
-	// Example: MinDuration to log only connections longer than a certain time.
-	// MinDuration types.Duration `description:"Keep access logs when connection took longer than the specified duration." json:"minDuration,omitempty" toml:"minDuration,omitempty" yaml:"minDuration,omitempty" export:"true"`
-	// Example: Log only if TLS was used.
-	// RequireTLS bool `description:"Keep access logs only for TLS connections." json:"requireTLS,omitempty" toml:"requireTLS,omitempty" yaml:"requireTLS,omitempty" export:"true"`
-}
-
-// TCPFieldHeaders holds configuration for TCP access log headers (less relevant for raw TCP, but kept for structural similarity if ever needed).
-type TCPFieldHeaders struct {
-	DefaultMode string            `description:"Default mode for fields: keep | drop | redact" json:"defaultMode,omitempty" toml:"defaultMode,omitempty" yaml:"defaultMode,omitempty" export:"true"`
-	Names       map[string]string `description:"Override mode for headers" json:"names,omitempty" toml:"names,omitempty" yaml:"names,omitempty" export:"true"`
-}
-
-// TCPAccessLogFields holds configuration for TCP access log fields.
-type TCPAccessLogFields struct {
-	DefaultMode string            `description:"Default mode for fields: keep | drop" json:"defaultMode,omitempty" toml:"defaultMode,omitempty" yaml:"defaultMode,omitempty"  export:"true"`
-	Names       map[string]string `description:"Override mode for fields" json:"names,omitempty" toml:"names,omitempty" yaml:"names,omitempty" export:"true"`
-	// Headers field might be less relevant for TCP unless we decide to log specific protocol headers (e.g. PROXY protocol).
-	// Headers     *TCPFieldHeaders  `description:"Headers to keep, drop or redact" json:"headers,omitempty" toml:"headers,omitempty" yaml:"headers,omitempty" export:"true"`
-}
-
-// SetDefaults sets the default values for TCPAccessLogFields.
-func (f *TCPAccessLogFields) SetDefaults() {
-	f.DefaultMode = AccessLogKeep
-	// f.Headers = &TCPFieldHeaders{ // If headers become relevant
-	// 	DefaultMode: AccessLogDrop,
-	// }
-}
-
-// Keep checks if the field needs to be kept or dropped for TCP access logs.
-func (f *TCPAccessLogFields) Keep(field string) bool {
-	defaultKeep := true
-	if f != nil {
-		defaultKeep = checkFieldValue(f.DefaultMode, defaultKeep) // Reuses existing helper
-
-		if v, ok := f.Names[field]; ok {
-			return checkFieldValue(v, defaultKeep) // Reuses existing helper
-		}
-	}
-	return defaultKeep
-}
-
 // SetDefaults sets the default values.
 func (l *TraefikLog) SetDefaults() {
 	l.Format = CommonFormat
@@ -254,12 +189,10 @@ func (o *OTelLog) NewLoggerProvider() (*otelsdk.LoggerProvider, error) {
 
 	res, err := resource.New(context.Background(),
 		resource.WithAttributes(attr...),
-		resource.WithContainer(),
 		resource.WithFromEnv(),
-		resource.WithHost(),
-		resource.WithOS(),
-		resource.WithProcess(),
 		resource.WithTelemetrySDK(),
+		resource.WithOSType(),
+		resource.WithProcessCommandArgs(),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("building resource: %w", err)

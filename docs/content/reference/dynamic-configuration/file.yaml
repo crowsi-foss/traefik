@@ -534,16 +534,29 @@ tcp:
             weight: 42
   middlewares:
     TCPMiddleware01:
+      accessLog:
+        filePath: foobar
+        format: foobar
+        filters:
+          minDuration: 42s
+          requireTLS: true
+        fields:
+          defaultMode: foobar
+          names:
+            name0: foobar
+            name1: foobar
+        bufferingSize: 42
+    TCPMiddleware02:
       ipAllowList:
         sourceRange:
           - foobar
           - foobar
-    TCPMiddleware02:
+    TCPMiddleware03:
       ipWhiteList:
         sourceRange:
           - foobar
           - foobar
-    TCPMiddleware03:
+    TCPMiddleware04:
       inFlightConn:
         amount: 42
   serversTransports:

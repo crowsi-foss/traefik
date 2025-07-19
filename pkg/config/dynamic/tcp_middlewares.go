@@ -1,10 +1,13 @@
 package dynamic
 
+import "github.com/traefik/traefik/v3/pkg/types"
+
 // +k8s:deepcopy-gen=true
 
 // TCPMiddleware holds the TCPMiddleware configuration.
 type TCPMiddleware struct {
-	InFlightConn *TCPInFlightConn `json:"inFlightConn,omitempty" toml:"inFlightConn,omitempty" yaml:"inFlightConn,omitempty" export:"true"`
+	AccessLog    *types.TCPAccessLog `json:"accessLog,omitempty" toml:"accessLog,omitempty" yaml:"accessLog,omitempty" export:"true"`
+	InFlightConn *TCPInFlightConn    `json:"inFlightConn,omitempty" toml:"inFlightConn,omitempty" yaml:"inFlightConn,omitempty" export:"true"`
 	// Deprecated: please use IPAllowList instead.
 	IPWhiteList *TCPIPWhiteList `json:"ipWhiteList,omitempty" toml:"ipWhiteList,omitempty" yaml:"ipWhiteList,omitempty" export:"true"`
 	IPAllowList *TCPIPAllowList `json:"ipAllowList,omitempty" toml:"ipAllowList,omitempty" yaml:"ipAllowList,omitempty" export:"true"`

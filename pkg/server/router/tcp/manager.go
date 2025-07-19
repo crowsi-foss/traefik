@@ -11,6 +11,7 @@ import (
 
 	"github.com/rs/zerolog/log"
 	"github.com/traefik/traefik/v3/pkg/config/runtime"
+	"github.com/traefik/traefik/v3/pkg/config/static"
 	"github.com/traefik/traefik/v3/pkg/logs"
 	"github.com/traefik/traefik/v3/pkg/middlewares/snicheck"
 	httpmuxer "github.com/traefik/traefik/v3/pkg/muxer/http"
@@ -55,35 +56,43 @@ type Manager struct {
 	conf               *runtime.Configuration
 }
 
-func (m *Manager) getTCPRouters(ctx context.Context, entryPoints []string) map[string]map[string]*runtime.TCPRouterInfo {
+func (m *Manager) getTCPRouters(ctx context.Context, entryPoints map[string]*static.EntryPoint) map[string]map[string]*runtime.TCPRouterInfo {
 	if m.conf != nil {
-		return m.conf.GetTCPRoutersByEntryPoints(ctx, entryPoints)
+		epNames := make([]string, 0, len(entryPoints))
+		for k := range entryPoints {
+			epNames = append(epNames, k)
+		}
+		return m.conf.GetTCPRoutersByEntryPoints(ctx, epNames)
 	}
 
 	return make(map[string]map[string]*runtime.TCPRouterInfo)
 }
 
-func (m *Manager) getHTTPRouters(ctx context.Context, entryPoints []string, tls bool) map[string]map[string]*runtime.RouterInfo {
+func (m *Manager) getHTTPRouters(ctx context.Context, entryPoints map[string]*static.EntryPoint, tls bool) map[string]map[string]*runtime.RouterInfo {
 	if m.conf != nil {
-		return m.conf.GetRoutersByEntryPoints(ctx, entryPoints, tls)
+		epNames := make([]string, 0, len(entryPoints))
+		for k := range entryPoints {
+			epNames = append(epNames, k)
+		}
+		return m.conf.GetRoutersByEntryPoints(ctx, epNames, tls)
 	}
 
 	return make(map[string]map[string]*runtime.RouterInfo)
 }
 
 // BuildHandlers builds the handlers for the given entrypoints.
-func (m *Manager) BuildHandlers(rootCtx context.Context, entryPoints []string) map[string]*Router {
+func (m *Manager) BuildHandlers(rootCtx context.Context, entryPoints map[string]*static.EntryPoint) map[string]*Router {
 	entryPointsRouters := m.getTCPRouters(rootCtx, entryPoints)
 	entryPointsRoutersHTTP := m.getHTTPRouters(rootCtx, entryPoints, true)
 
 	entryPointHandlers := make(map[string]*Router)
-	for _, entryPointName := range entryPoints {
+	for entryPointName, entryPointConfig := range entryPoints {
 		routers := entryPointsRouters[entryPointName]
 
 		logger := log.Ctx(rootCtx).With().Str(logs.EntryPointName, entryPointName).Logger()
 		ctx := logger.WithContext(rootCtx)
 
-		handler, err := m.buildEntryPointHandler(ctx, routers, entryPointsRoutersHTTP[entryPointName], m.httpHandlers[entryPointName], m.httpsHandlers[entryPointName])
+		handler, err := m.buildEntryPointHandler(ctx, routers, entryPointsRoutersHTTP[entryPointName], m.httpHandlers[entryPointName], m.httpsHandlers[entryPointName], entryPointConfig.TCPAccessLog)
 		if err != nil {
 			logger.Error().Err(err).Send()
 			continue
@@ -98,7 +107,7 @@ type nameAndConfig struct {
 	TLSConfig  *tls.Config
 }
 
-func (m *Manager) buildEntryPointHandler(ctx context.Context, configs map[string]*runtime.TCPRouterInfo, configsHTTP map[string]*runtime.RouterInfo, handlerHTTP, handlerHTTPS http.Handler) (*Router, error) {
+func (m *Manager) buildEntryPointHandler(ctx context.Context, configs map[string]*runtime.TCPRouterInfo, configsHTTP map[string]*runtime.RouterInfo, handlerHTTP, handlerHTTPS http.Handler, accessLog *types.TCPAccessLog) (*Router, error) {
 	// Build a new Router.
 	router, err := NewRouter()
 	if err != nil {
@@ -255,13 +264,13 @@ func (m *Manager) buildEntryPointHandler(ctx context.Context, configs map[string
 		router.AddHTTPTLSConfig(hostSNI, defaultTLSConf)
 	}
 
-	m.addTCPHandlers(ctx, configs, router)
+	m.addTCPHandlers(ctx, configs, router, accessLog)
 
 	return router, nil
 }
 
 // addTCPHandlers creates the TCP handlers defined in configs, and adds them to router.
-func (m *Manager) addTCPHandlers(ctx context.Context, configs map[string]*runtime.TCPRouterInfo, router *Router) {
+func (m *Manager) addTCPHandlers(ctx context.Context, configs map[string]*runtime.TCPRouterInfo, router *Router, accessLog *types.TCPAccessLog) {
 	for routerName, routerConfig := range configs {
 		logger := log.Ctx(ctx).With().Str(logs.RouterName, routerName).Logger()
 		ctxRouter := logger.WithContext(provider.AddInContext(ctx, routerName))
@@ -320,6 +329,22 @@ func (m *Manager) addTCPHandlers(ctx context.Context, configs map[string]*runtim
 
 		if routerConfig.TLS == nil {
 			logger.Debug().Msgf("Adding route for %q", routerConfig.Rule)
+
+			if accessLog != nil {
+				builder, err := tcpmiddleware.NewAccessLogBuilder(accessLog)
+				if err != nil {
+					routerConfig.AddError(err, true)
+					logger.Error().Err(err).Send()
+					continue
+				}
+
+				handler, err = builder(ctx, handler)
+				if err != nil {
+					routerConfig.AddError(err, true)
+					logger.Error().Err(err).Send()
+					continue
+				}
+			}
 
 			if err := router.muxerTCP.AddRoute(routerConfig.Rule, routerConfig.RuleSyntax, routerConfig.Priority, handler); err != nil {
 				routerConfig.AddError(err, true)
@@ -395,6 +420,22 @@ func (m *Manager) addTCPHandlers(ctx context.Context, configs map[string]*runtim
 		handler = &tcp.TLSHandler{
 			Next:   handler,
 			Config: tlsConf,
+		}
+
+		if accessLog != nil {
+			builder, err := tcpmiddleware.NewAccessLogBuilder(accessLog)
+			if err != nil {
+				routerConfig.AddError(err, true)
+				logger.Error().Err(err).Send()
+				continue
+			}
+
+			handler, err = builder(ctx, handler)
+			if err != nil {
+				routerConfig.AddError(err, true)
+				logger.Error().Err(err).Send()
+				continue
+			}
 		}
 
 		logger.Debug().Msgf("Adding TLS route for %q", routerConfig.Rule)

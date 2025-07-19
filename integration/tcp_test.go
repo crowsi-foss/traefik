@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -289,8 +290,8 @@ func (s *TCPSuite) TestWRR() {
 	call := map[string]int{}
 	for range 4 {
 		// Traefik passes through, termination handled by whoami-b or whoami-bb
-		out, err := guessWhoTLSPassthrough("127.0.0.1:8093", "whoami-b.test")
-		require.NoError(s.T(), err)
+		out, errGuess := guessWhoTLSPassthrough("127.0.0.1:8093", "whoami-b.test")
+		require.NoError(s.T(), errGuess)
 		switch {
 		case strings.Contains(out, "whoami-b"):
 			call["whoami-b"]++
@@ -303,6 +304,37 @@ func (s *TCPSuite) TestWRR() {
 	}
 
 	assert.Equal(s.T(), map[string]int{"whoami-b": 3, "whoami-ab": 1}, call)
+}
+
+func (s *TCPSuite) TestAccessLog() {
+	logFile, err := os.CreateTemp(s.T().TempDir(), "tcp-access.log")
+	require.NoError(s.T(), err)
+	defer os.Remove(logFile.Name())
+
+	config := s.adaptFile("fixtures/tcp/access-log.toml", struct {
+		WhoamiB string
+		LogFile string
+	}{
+		WhoamiB: s.getComposeServiceIP("whoami-b") + ":8080",
+		LogFile: logFile.Name(),
+	})
+
+	s.traefikCmd(withConfigFile(config))
+
+	err = try.GetRequest("http://127.0.0.1:8080/api/rawdata", 5*time.Second, try.StatusCodeIs(http.StatusOK), try.BodyContains("HostSNI(`whoami-b.test`)"))
+	require.NoError(s.T(), err)
+
+	// Traefik passes through, termination handled by whoami-b
+	out, err := guessWhoTLSPassthrough("127.0.0.1:8093", "whoami-b.test")
+	require.NoError(s.T(), err)
+	assert.Contains(s.T(), out, "whoami-b")
+
+	logContent, err := os.ReadFile(logFile.Name())
+	require.NoError(s.T(), err)
+
+	assert.Contains(s.T(), string(logContent), `"level":"info"`)
+	assert.Contains(s.T(), string(logContent), `"msg":"TCP connection"`)
+	assert.Contains(s.T(), string(logContent), `"RouterName":"tcp-to-whoami-b@file"`)
 }
 
 func welcome(addr string) (string, error) {

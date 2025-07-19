@@ -3,6 +3,7 @@ package tcp
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"crypto/tls"
 	"errors"
 	"io"
@@ -14,7 +15,9 @@ import (
 	"github.com/go-acme/lego/v4/challenge/tlsalpn01"
 	"github.com/rs/zerolog/log"
 	tcpmuxer "github.com/traefik/traefik/v3/pkg/muxer/tcp"
+	tcpmiddleware "github.com/traefik/traefik/v3/pkg/server/middleware/tcp"
 	"github.com/traefik/traefik/v3/pkg/tcp"
+	"github.com/traefik/traefik/v3/pkg/types"
 )
 
 const defaultBufSize = 4096
@@ -227,7 +230,20 @@ func (r *Router) acmeTLSALPNHandler() tcp.Handler {
 }
 
 // AddTCPRoute defines a handler for the given rule.
-func (r *Router) AddTCPRoute(rule string, priority int, target tcp.Handler) error {
+func (r *Router) AddTCPRoute(rule string, priority int, target tcp.Handler, accessLog *types.TCPAccessLog) error {
+	if accessLog != nil {
+		builder, err := tcpmiddleware.NewAccessLogBuilder(accessLog)
+		if err != nil {
+			return err
+		}
+
+		handler, err := builder(context.Background(), target)
+		if err != nil {
+			return err
+		}
+		target = handler
+	}
+
 	return r.muxerTCP.AddRoute(rule, "", priority, target)
 }
 

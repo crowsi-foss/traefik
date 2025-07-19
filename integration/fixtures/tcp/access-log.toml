@@ -1,0 +1,20 @@
+[entryPoints]
+  [entryPoints.tcp]
+    address = ":8093"
+    [entryPoints.tcp.tcpAccessLog]
+      filePath = "{{.LogFile}}"
+      format = "json"
+
+[tcp]
+  [tcp.routers]
+    [tcp.routers.tcp-to-whoami-b]
+      entryPoints = ["tcp"]
+      rule = "HostSNI(`whoami-b.test`)"
+      service = "whoami-b"
+      [tcp.routers.tcp-to-whoami-b.tls]
+        passthrough = true
+
+  [tcp.services]
+    [tcp.services.whoami-b.loadBalancer]
+      [[tcp.services.whoami-b.loadBalancer.servers]]
+        address = "{{.WhoamiB}}"

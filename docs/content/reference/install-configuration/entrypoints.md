@@ -116,6 +116,7 @@ additionalArguments:
 | `transport.`<br />`keepAliveMaxRequests`                        | Set the maximum number of requests Traefik can handle before sending a `Connection: Close` header to the client (for HTTP2, Traefik sends a GOAWAY). <br /> Zero means no limit. | 0 | No |
 | `transport.`<br />`keepAliveMaxTime`                            | Set the maximum duration Traefik can handle requests before sending a `Connection: Close` header to the client (for HTTP2, Traefik sends a GOAWAY). Zero means no limit.  | 0s (seconds) | No |
 | `udp.timeout`                                                   | Define how long to wait on an idle session before releasing the related resources. <br />The Timeout value must be greater than zero. | 3s (seconds)| No |
+| `tcpAccessLog`                                                  | Enable TCP access logs. | - | No |
 
 ### asDefault
 

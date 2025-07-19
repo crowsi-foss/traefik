@@ -104,6 +104,14 @@ func (f *AccessLogFields) SetDefaults() {
 	}
 }
 
+// TCPAccessLog holds the TCP access log configuration.
+// It defines the file path and the format for the TCP access log.
+type TCPAccessLog struct {
+	FilePath      string `json:"filePath,omitempty" toml:"filePath,omitempty" yaml:"filePath,omitempty" description:"TCP access log file path. Stdout is used when omitted or empty."`
+	Format        string `json:"format,omitempty" toml:"format,omitempty" yaml:"format,omitempty" description:"TCP access log format: json | common"`
+	BufferingSize int64  `json:"bufferingSize,omitempty" toml:"bufferingSize,omitempty" yaml:"bufferingSize,omitempty" description:"Number of access log lines to process in a buffered way."`
+}
+
 // Keep check if the field need to be kept or dropped.
 func (f *AccessLogFields) Keep(field string) bool {
 	defaultKeep := true

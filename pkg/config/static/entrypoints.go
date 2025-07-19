@@ -23,6 +23,7 @@ type EntryPoint struct {
 	HTTP2            *HTTP2Config          `description:"HTTP/2 configuration." json:"http2,omitempty" toml:"http2,omitempty" yaml:"http2,omitempty" export:"true"`
 	HTTP3            *HTTP3Config          `description:"HTTP/3 configuration." json:"http3,omitempty" toml:"http3,omitempty" yaml:"http3,omitempty" label:"allowEmpty" file:"allowEmpty" export:"true"`
 	UDP              *UDPConfig            `description:"UDP configuration." json:"udp,omitempty" toml:"udp,omitempty" yaml:"udp,omitempty"`
+	TCPAccessLog     *types.TCPAccessLog   `description:"TCP access log settings." json:"tcpAccessLog,omitempty" toml:"tcpAccessLog,omitempty" yaml:"tcpAccessLog,omitempty" label:"allowEmpty" file:"allowEmpty" export:"true"`
 	Observability    *ObservabilityConfig  `description:"Observability configuration." json:"observability,omitempty" toml:"observability,omitempty" yaml:"observability,omitempty" export:"true"`
 }
 

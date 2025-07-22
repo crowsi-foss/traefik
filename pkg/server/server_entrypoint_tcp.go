@@ -34,6 +34,8 @@ import (
 	"github.com/traefik/traefik/v3/pkg/server/service"
 	"github.com/traefik/traefik/v3/pkg/tcp"
 	"github.com/traefik/traefik/v3/pkg/types"
+	accesslog "github.com/traefik/traefik/v3/pkg/middlewares/accesslog"
+	tcpmiddleware "github.com/traefik/traefik/v3/pkg/middlewares/tcp"
 )
 
 type key string
@@ -179,6 +181,20 @@ func NewTCPEntryPoint(ctx context.Context, name string, config *static.EntryPoin
 	rt, err := tcprouter.NewRouter()
 	if err != nil {
 		return nil, fmt.Errorf("error preparing tcp router: %w", err)
+	}
+
+	// --- TCP Access Log Integration ---
+	if config != nil && config.AccessLog != nil && config.AccessLog.FilePath != "" {
+		logger, err := accesslog.NewTCPAccessLogger(config.AccessLog.FilePath, config.AccessLog.Format)
+		if err == nil {
+			accessLogCfg := &tcpmiddleware.AccessLogConfig{
+				Logger: logger,
+				Router: name,
+				Service: "",
+			}
+			// Insert the middleware at the start of the TCP handler chain
+			rt.UseGlobalMiddleware(tcpmiddleware.AccessLogMiddleware(accessLogCfg))
+		}
 	}
 
 	reqDecorator := requestdecorator.New(hostResolverConfig)

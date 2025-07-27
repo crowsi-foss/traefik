@@ -29,7 +29,6 @@ import (
 	"github.com/traefik/traefik/v3/pkg/middlewares/forwardedheaders"
 	"github.com/traefik/traefik/v3/pkg/middlewares/requestdecorator"
 	"github.com/traefik/traefik/v3/pkg/safe"
-	"github.com/traefik/traefik/v3/pkg/server/router"
 	tcprouter "github.com/traefik/traefik/v3/pkg/server/router/tcp"
 	"github.com/traefik/traefik/v3/pkg/server/service"
 	"github.com/traefik/traefik/v3/pkg/tcp"
@@ -367,7 +366,7 @@ func (e *TCPEntryPoint) SwitchRouter(rt *tcprouter.Router) {
 
 	httpHandler := rt.GetHTTPHandler()
 	if httpHandler == nil {
-		httpHandler = router.BuildDefaultHTTPRouter()
+		httpHandler = http.NotFoundHandler()
 	}
 
 	e.httpServer.Switcher.UpdateHandler(httpHandler)
@@ -376,7 +375,7 @@ func (e *TCPEntryPoint) SwitchRouter(rt *tcprouter.Router) {
 
 	httpsHandler := rt.GetHTTPSHandler()
 	if httpsHandler == nil {
-		httpsHandler = router.BuildDefaultHTTPRouter()
+		httpsHandler = http.NotFoundHandler()
 	}
 
 	e.httpsServer.Switcher.UpdateHandler(httpsHandler)
@@ -492,6 +491,13 @@ func buildListener(ctx context.Context, name string, config *static.EntryPoint) 
 
 	if listener == nil {
 		listenConfig := newListenConfig(config)
+
+		// TODO: Look into configuring keepAlive period through listenConfig instead of our custom tcpKeepAliveListener, to reactivate MultipathTCP?
+		// MultipathTCP is not supported on all platforms, and is notably unsupported in combination with TCP keep-alive.
+		if !strings.Contains(os.Getenv("GODEBUG"), "multipathtcp") {
+			listenConfig.SetMultipathTCP(false)
+		}
+
 		listener, err = listenConfig.Listen(ctx, "tcp", config.GetAddress())
 		if err != nil {
 			return nil, fmt.Errorf("error opening listener: %w", err)
@@ -607,7 +613,7 @@ func createHTTPServer(ctx context.Context, ln net.Listener, configuration *stati
 		return nil, errors.New("max concurrent streams value must be greater than or equal to zero")
 	}
 
-	httpSwitcher := middlewares.NewHandlerSwitcher(router.BuildDefaultHTTPRouter())
+	httpSwitcher := middlewares.NewHandlerSwitcher(http.NotFoundHandler())
 
 	next, err := alice.New(requestdecorator.WrapHandler(reqDecorator)).Then(httpSwitcher)
 	if err != nil {
